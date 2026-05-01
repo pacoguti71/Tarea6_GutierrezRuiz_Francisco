@@ -1,17 +1,21 @@
 package dam.pmdm.tarea6_gutierrezruiz_francisco
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.doOnTextChanged
+import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -19,6 +23,7 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import dam.pmdm.tarea6_gutierrezruiz_francisco.databinding.ActivityMainBinding
@@ -35,6 +40,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var binding: ActivityMainBinding // ViewBinding de la actividad
     private lateinit var miMapa: GoogleMap // Instancia del mapa de Google
     private lateinit var limites: LatLngBounds // Límites geográficos que engloban todos los marcadores
+    private var marcadorUsuario: Marker? = null
 
     /**
      * Punto de entrada principal de la actividad.
@@ -46,13 +52,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
      * @param savedInstanceState Si la actividad se está reinstalando después de haber sido
      * cerrada previamente, este bundle contiene los datos que suministró más recientemente.
      */
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
 
         configurarPantalla()
         solicitarPermisoLocalizacion()
         inicializarMapa()
-        configurarBotonReset()
+        configurarBotonResetYSwitch()
     }
 
     // -------------------------
@@ -90,9 +98,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
      */
     private fun solicitarPermisoLocalizacion() {
         // Verifica si el permiso de ubicación ya ha sido concedido por el usuario antes de solicitarlo
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
-            != android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) {
+        if (!tienePermisosUbicacion()) {
             // Si el permiso no ha sido concedido, solicita al usuario que lo otorgue
             requestPermissions(
                 // Solicita ambos permisos de ubicación: ACCESS_FINE_LOCATION para ubicación precisa y ACCESS_COARSE_LOCATION para ubicación aproximada
@@ -103,6 +109,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 LOCATION_REQUEST_CODE
             )
         }
+    }
+
+    private fun tienePermisosUbicacion(): Boolean {
+        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
 
     // -------------------------
@@ -125,13 +135,62 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
      * Inicializa el mapa, añade marcadores, calcula los límites para encuadrarlos,
      * ajusta el zoom inicial y configura la interacción con los marcadores.
      */
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     override fun onMapReady(googleMap: GoogleMap) {
+        val estiloMapa = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapa_style)
         miMapa = googleMap
+        miMapa.setMapStyle(estiloMapa)
 
         incluirMarcadores()
+        mostrarUbicacionUsuario()
         ajustarZoomAMarcadores()
         configurarEventosMapa()
     }
+
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == LOCATION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permiso concedido, puedes habilitar la funcionalidad relacionada con la ubicación aquí
+                Toast.makeText(this, "Permiso de ubicación concedido", Toast.LENGTH_SHORT).show()
+                mostrarUbicacionUsuario()
+            } else {
+                // Permiso denegado, muestra un mensaje o deshabilita la funcionalidad relacionada con la ubicación
+                Toast.makeText(this, "Permiso de ubicación denegado", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+    private fun mostrarUbicacionUsuario() {
+        if (tienePermisosUbicacion() && binding.switch1.isChecked) {
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+            fusedLocationClient.lastLocation.addOnSuccessListener { localizacion ->
+                if (localizacion != null) {
+                    val ubicacionUsuario = LatLng(localizacion.latitude, localizacion.longitude)
+                    if (marcadorUsuario == null) {
+                        marcadorUsuario = miMapa.addMarker(
+                            MarkerOptions()
+                                .position(ubicacionUsuario)
+                                .title("Tu ubicación")
+                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_astrobot))
+                        )
+                    } else {
+                        marcadorUsuario?.position = ubicacionUsuario
+                    }
+                    miMapa.animateCamera(
+                        CameraUpdateFactory.newLatLngZoom(ubicacionUsuario, 12f)
+                    )
+                }
+            }
+        } else {
+            // Eliminar marcador si el switch está apagado o no hay permiso
+            marcadorUsuario?.remove()
+            marcadorUsuario = null
+        }
+    }
+
 
     /**
      * Añade los marcadores al mapa a partir de la lista de localizaciones predefinidas.
@@ -154,6 +213,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 MarkerOptions()
                     .position(posicion)
                     .title(localizacion.titulo)
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)
+                    )
             )
             // Asocia la misión correspondiente a este marcador usando el campo tag para acceder a ella posteriormente
             marcador?.tag = localizacion.mision
@@ -177,6 +238,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             // Si no se ha hecho el zoom, anima la cámara para acercarse al marcador
             if (miMapa.cameraPosition.zoom < 12f) {
                 miMapa.animateCamera(CameraUpdateFactory.newLatLngZoom(marcador.position, 12f))
+                marcador.showInfoWindow()
             } else {
                 // Si ya está cerca, muestra la misión
                 if (mision != null) {
@@ -192,7 +254,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         // Crea un EditText para que el usuario introduzca el código de la misión
         val campoTexto = EditText(this)
         // Configura el tipo de entrada para texto normal y establece un hint para guiar al usuario
-        campoTexto.hint = "Introduce el código"
+        // campoTexto.hint = "Introduce el código"
+        // Prellena el campo de texto con el código correcto de la misión para facilitar las pruebas (puedes eliminar esta línea en producción)
+        campoTexto.setText(mision.codigoMisionCompletada)
         // Crea un diálogo de alerta para mostrar la misión y permitir al usuario introducir el código
         val cuadroDialogo = AlertDialog.Builder(this)
             .setTitle(mision.puntoControl)
@@ -225,20 +289,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                         BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
                     )
                     // Muestra un mensaje de éxito al usuario indicando que la misión ha sido completada
-                    Toast.makeText(
-                        this,
-                        "Misión completada",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(this, "Misión completada", Toast.LENGTH_SHORT).show()
                     // Cierra el diálogo después de completar la misión
                     cuadroDialogo.dismiss()
                     // Si el código es incorrecto, muestra un mensaje de error al usuario indicando que el código no es correcto y que la misión no se ha completado
                 } else {
-                    Toast.makeText(
-                        this,
-                        "Código incorrecto. Misión no completada.",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(this, "Código incorrecto. Misión no completada.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -261,10 +317,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
      * Al pulsar el botón, si los límites de los marcadores están inicializados,
      * la cámara del mapa se reajusta para mostrar todos los puntos de interés.
      */
-    private fun configurarBotonReset() {
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+    private fun configurarBotonResetYSwitch() {
         binding.botonResetZoom.setOnClickListener {
             if (::limites.isInitialized) {
                 ajustarZoomAMarcadores()
+            }
+        }
+
+        binding.switch1.setOnCheckedChangeListener { _, _ ->
+            if (tienePermisosUbicacion() && this::miMapa.isInitialized) {
+                mostrarUbicacionUsuario()
             }
         }
     }

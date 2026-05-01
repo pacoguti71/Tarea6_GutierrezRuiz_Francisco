@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">Gyncana AstroBot</string>
     <string name="reset">Reset</string>
+    <string name="mostrar_ubicacion">Mostrar ubicación</string>
+    <string name="splash_image">Pantalla splash</string>
+    <string name="bienvenido_a_la_n_ngyncana_astrobot">Bienvenido a la\n\nGyncana\n\nAstroBot</string>
 </resources>

@@ -42,18 +42,15 @@ android {
 }
 
 secrets {
-    // Optionally specify a different file name containing your secrets.
-    // The plugin defaults to "local.properties"
+    // Especifica un nombre diferente para el archivo que contiene las claves secretas porque el plugin usa por defecto "local.properties"
     propertiesFileName = "secrets.properties"
 
-    // A properties file containing default secret values. This file can be
-    // checked in version control.
+    // El archivo de propiedades que contiene valores secretos por defecto. Este archivo puede subirse al control de versiones.
     defaultPropertiesFileName = "local.defaults.properties"
 
-    // Configure which keys should be ignored by the plugin by providing regular expressions.
-    // "sdk.dir" is ignored by default.
-    ignoreList.add("keyToIgnore") // Ignore the key "keyToIgnore"
-    ignoreList.add("sdk.*")       // Ignore all keys matching the regexp "sdk.*"
+    // Configura qué claves deben ser ignoradas por el plugin usando expresiones regulares.
+    ignoreList.add("keyToIgnore") // Ignora la clave "keyToIgnore"
+    ignoreList.add("sdk.*")       // Ignora todas las claves que coincidan con la expresión regular "sdk.*"
 }
 
 
@@ -68,4 +65,5 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    implementation(libs.androidx.core.splashscreen)
 }
