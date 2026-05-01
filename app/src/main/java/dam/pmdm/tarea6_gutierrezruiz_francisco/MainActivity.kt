@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewGroup
-import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresPermission
@@ -27,6 +26,7 @@ import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import dam.pmdm.tarea6_gutierrezruiz_francisco.databinding.ActivityMainBinding
+import dam.pmdm.tarea6_gutierrezruiz_francisco.databinding.DialogoBinding
 import dam.pmdm.tarea6_gutierrezruiz_francisco.datos.DatosMapa
 import dam.pmdm.tarea6_gutierrezruiz_francisco.datos.Mision
 
@@ -111,6 +111,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    /**
+     * Comprueba si el usuario ha otorgado el permiso de acceso a la ubicación precisa
+     * (ACCESS_FINE_LOCATION) para la aplicación.
+     *
+     * @return `true` si el permiso ha sido concedido; `false` en caso contrario.
+     */
     private fun tienePermisosUbicacion(): Boolean {
         return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
@@ -213,8 +219,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 MarkerOptions()
                     .position(posicion)
                     .title(localizacion.titulo)
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)
-                    )
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE))
             )
             // Asocia la misión correspondiente a este marcador usando el campo tag para acceder a ella posteriormente
             marcador?.tag = localizacion.mision
@@ -250,18 +255,30 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    /**
+     * Muestra un diálogo interactivo para realizar la misión asociada a un marcador.
+     *
+     * El diálogo utiliza un layout personalizado que permite al usuario visualizar el enunciado
+     * de la misión e introducir un código de validación. Si el código es correcto, la misión
+     * se marca como completada y el color del marcador cambia a verde.
+     *
+     * El diálogo se posiciona en la parte superior de la pantalla para mantener la visibilidad del mapa.
+     *
+     * @param mision El objeto [Mision] que contiene los datos de la prueba (enunciado, código, estado).
+     * @param marcador El objeto [Marker] de Google Maps vinculado a la misión para actualizar su apariencia.
+     */
     private fun mostrarDialogoMision(mision: Mision, marcador: Marker) {
-        // Crea un EditText para que el usuario introduzca el código de la misión
-        val campoTexto = EditText(this)
-        // Configura el tipo de entrada para texto normal y establece un hint para guiar al usuario
-        // campoTexto.hint = "Introduce el código"
-        // Prellena el campo de texto con el código correcto de la misión para facilitar las pruebas (puedes eliminar esta línea en producción)
-        campoTexto.setText(mision.codigoMisionCompletada)
-        // Crea un diálogo de alerta para mostrar la misión y permitir al usuario introducir el código
-        val cuadroDialogo = AlertDialog.Builder(this)
+        // Infla el layout personalizado
+        val dialogBinding = DialogoBinding.inflate(layoutInflater)
+        // Establece el enunciado de la misión en el TextView del diálogo
+        dialogBinding.tvEnunciado.text = mision.enunciado
+        // Prellena el EditText del diálogo con el código correcto de la misión para facilitar las pruebas, aunque en una aplicación real esto no se haría para evitar que el usuario vea la respuesta correcta
+        dialogBinding.etCodigo.setText(mision.codigoMisionCompletada)
+        // Crea un cuadro de diálogo utilizando MaterialAlertDialogBuilder, configurando su título, icono, vista personalizada y botones de acción
+        val cuadroDialogo = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
             .setTitle(mision.puntoControl)
-            .setMessage(mision.enunciado)
-            .setView(campoTexto)
+            .setIcon(R.drawable.ic_astrobot)
+            .setView(dialogBinding.root) // Usamos el root del binding
             .setPositiveButton("Comprobar", null)
             .setNegativeButton("Cerrar", null)
             .create()
@@ -272,22 +289,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             // Inicialmente, el botón de comprobación está deshabilitado hasta que el usuario introduzca algo en el campo de texto
             botonComprobar.isEnabled = false
             // Configura un listener para detectar cambios en el campo de texto
-            campoTexto.doOnTextChanged { text, _, _, _ ->
+            dialogBinding.etCodigo.doOnTextChanged { text, _, _, _ ->
                 // Habilita el botón de comprobación solo si el campo de texto no está vacío o en blanco
                 botonComprobar.isEnabled = !text.isNullOrBlank()
             }
             // Configura el comportamiento del botón de comprobación al hacer clic
             botonComprobar.setOnClickListener {
                 // Obtiene el código introducido por el usuario, eliminando espacios en blanco al inicio y al final
-                val codigoIntroducido = campoTexto.text.toString().trim()
+                val codigoIntroducido = dialogBinding.etCodigo.text.toString().trim()
                 // Compara el código introducido con el código correcto de la misión para determinar si se ha completado
                 if (codigoIntroducido == mision.codigoMisionCompletada) {
                     // Si el código es correcto, marca la misión como completada
                     mision.completada = true
                     // Cambia el color del marcador a verde para indicar que la misión ha sido completada
-                    marcador.setIcon(
-                        BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
-                    )
+                    marcador.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
                     // Muestra un mensaje de éxito al usuario indicando que la misión ha sido completada
                     Toast.makeText(this, "Misión completada", Toast.LENGTH_SHORT).show()
                     // Cierra el diálogo después de completar la misión
@@ -343,5 +358,4 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             CameraUpdateFactory.newLatLngBounds(limites, MARGEN_ZOOM.toInt())
         )
     }
-
 }

@@ -4,4 +4,6 @@
     <string name="mostrar_ubicacion">Mostrar ubicación</string>
     <string name="splash_image">Pantalla splash</string>
     <string name="bienvenido_a_la_n_ngyncana_astrobot">Bienvenido a la\n\nGyncana\n\nAstroBot</string>
+    <string name="cu_l_es_el_c_digo">¿Cuál es el código?</string>
+    <string name="c_digo_secreto">Código secreto</string>
 </resources>
