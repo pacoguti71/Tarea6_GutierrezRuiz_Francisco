@@ -30,6 +30,21 @@ import dam.pmdm.tarea6_gutierrezruiz_francisco.databinding.DialogoBinding
 import dam.pmdm.tarea6_gutierrezruiz_francisco.datos.DatosMapa
 import dam.pmdm.tarea6_gutierrezruiz_francisco.datos.Mision
 
+/**
+ * Actividad principal de la aplicación que gestiona el mapa interactivo de misiones.
+ *
+ * Esta clase se encarga de:
+ * - Inicializar y configurar Google Maps con un estilo personalizado.
+ * - Gestionar permisos de ubicación en tiempo real.
+ * - Ubicar marcadores dinámicos que representan puntos de control o misiones.
+ * - Permitir al usuario interactuar con las misiones mediante diálogos de validación de códigos.
+ * - Controlar la visualización de la ubicación actual del usuario mediante un interruptor (Switch).
+ * - Proporcionar controles de navegación para restablecer la vista panorámica de todos los marcadores.
+ *
+ * Implementa [OnMapReadyCallback] para gestionar la carga del mapa de forma asíncrona.
+ *
+ * @author Francisco Gutiérrez Ruiz
+ */
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     // Constantes
@@ -153,29 +168,59 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         configurarEventosMapa()
     }
 
+    /**
+     * Callback que recibe el resultado de la solicitud de permisos de ubicación.
+     *
+     * Si el usuario concede los permisos (especificados por [LOCATION_REQUEST_CODE]), se procede a
+     * habilitar la visualización de la posición del usuario en el mapa. En caso contrario, se
+     * notifica al usuario que la funcionalidad de ubicación no estará disponible.
+     *
+     * @param requestCode El código de solicitud pasado en [requestPermissions].
+     * @param permissions El array de permisos solicitados.
+     * @param grantResults El resultado de la concesión para los permisos correspondientes.
+     */
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        // Verifica si el resultado corresponde a la solicitud de permisos de ubicación
         if (requestCode == LOCATION_REQUEST_CODE) {
+            // Si el usuario ha concedido el permiso, habilita la funcionalidad relacionada con la ubicación
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permiso concedido, puedes habilitar la funcionalidad relacionada con la ubicación aquí
+                // Permiso concedido
                 Toast.makeText(this, "Permiso de ubicación concedido", Toast.LENGTH_SHORT).show()
                 mostrarUbicacionUsuario()
             } else {
-                // Permiso denegado, muestra un mensaje o deshabilita la funcionalidad relacionada con la ubicación
+                // Permiso denegado
                 Toast.makeText(this, "Permiso de ubicación denegado", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
+    /**
+     * Gestiona la visualización de la ubicación actual del usuario en el mapa.
+     *
+     * Si los permisos de ubicación están concedidos y el interruptor de seguimiento está activado,
+     * obtiene la última localización conocida, coloca o actualiza un marcador personalizado
+     * (Astrobot) en dicha posición y desplaza la cámara hacia ella.
+     *
+     * En caso de que el interruptor esté desactivado o no se disponga de permisos,
+     * elimina el marcador del usuario del mapa si este existiera.
+     */
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private fun mostrarUbicacionUsuario() {
+        // Verifica si el permiso de ubicación ha sido concedido y si el switch para mostrar la ubicación está activado
         if (tienePermisosUbicacion() && binding.switch1.isChecked) {
+            // Obtiene el cliente de ubicación fusionada para acceder a la ubicación del dispositivo
             val fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+            // Solicita la última ubicación conocida del dispositivo y añade un listener para manejar el resultado
             fusedLocationClient.lastLocation.addOnSuccessListener { localizacion ->
+                // Si se ha obtenido una ubicación válida, actualiza o crea el marcador de la ubicación del usuario en el mapa
                 if (localizacion != null) {
+                    // Crea un objeto LatLng con la latitud y longitud de la ubicación obtenida
                     val ubicacionUsuario = LatLng(localizacion.latitude, localizacion.longitude)
+                    // Si el marcador de la ubicación del usuario no existe, créalo
                     if (marcadorUsuario == null) {
+                        // Crea un nuevo marcador en la ubicación del usuario con un título y un icono personalizado
                         marcadorUsuario = miMapa.addMarker(
                             MarkerOptions()
                                 .position(ubicacionUsuario)
@@ -183,11 +228,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                                 .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_astrobot))
                         )
                     } else {
+                        // Si el marcador ya existe, actualiza su posición a la nueva ubicación del usuario
                         marcadorUsuario?.position = ubicacionUsuario
                     }
-                    miMapa.animateCamera(
-                        CameraUpdateFactory.newLatLngZoom(ubicacionUsuario, 12f)
-                    )
+                    // Anima la cámara para centrar la vista en la ubicación del usuario con un nivel de zoom específico
+                    miMapa.animateCamera(CameraUpdateFactory.newLatLngZoom(ubicacionUsuario, 12f))
                 }
             }
         } else {
@@ -196,7 +241,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             marcadorUsuario = null
         }
     }
-
 
     /**
      * Añade los marcadores al mapa a partir de la lista de localizaciones predefinidas.
